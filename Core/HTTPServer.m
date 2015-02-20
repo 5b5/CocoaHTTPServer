@@ -582,6 +582,9 @@ static const int httpLogLevel = HTTP_LOG_LEVEL_INFO; // | HTTP_LOG_FLAG_TRACE;
 	if (type)
 	{
 		netService = [[NSNetService alloc] initWithDomain:domain type:type name:name port:[asyncSocket localPort]];
+        if ([netService respondsToSelector:@selector(includesPeerToPeer)]) {
+            netService.includesPeerToPeer = YES;
+        }
 		[netService setDelegate:self];
 		
 		NSNetService *theNetService = netService;
