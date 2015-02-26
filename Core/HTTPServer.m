@@ -582,8 +582,9 @@ static const int httpLogLevel = HTTP_LOG_LEVEL_INFO; // | HTTP_LOG_FLAG_TRACE;
 	if (type)
 	{
 		netService = [[NSNetService alloc] initWithDomain:domain type:type name:name port:[asyncSocket localPort]];
+        // .includesPeerToPeer isn't available on OS X before 10.10, so check:
         if ([netService respondsToSelector:@selector(includesPeerToPeer)]) {
-            netService.includesPeerToPeer = YES;
+            [netService setValue: @YES forKey: @"includesPeerToPeer"];
         }
 		[netService setDelegate:self];
 		
