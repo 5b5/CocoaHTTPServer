@@ -354,6 +354,15 @@ static NSMutableArray *recentNonces;
 	return nil;
 }
 
+- (BOOL)requiresSSLClientCert
+{
+    HTTPLogTrace();
+
+    // Override me to require that clients provide SSL certs.
+
+    return NO;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Password Protection
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -652,7 +661,13 @@ static NSMutableArray *recentNonces;
 			[settings setObject:(NSString *)kCFStreamSocketSecurityLevelTLSv1
 						 forKey:(NSString *)kCFStreamSSLLevel];
 			
-			[asyncSocket startTLS:settings];
+            if (self.requiresSSLClientCert)
+            {
+                settings[GCDAsyncSocketSSLClientSideAuthentication] = @(kAlwaysAuthenticate);
+                settings[GCDAsyncSocketManuallyEvaluateTrust] = @YES;
+            }
+
+            [asyncSocket startTLS:settings];
 		}
 	}
 	
