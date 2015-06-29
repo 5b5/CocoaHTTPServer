@@ -6556,7 +6556,7 @@ static OSStatus SSLWriteFunction(SSLConnectionRef connection, const void *data, 
 	if (status == noErr)
 	{
 		LogVerbose(@"SSLHandshake complete");
-		
+
 		flags &= ~kStartingReadTLS;
 		flags &= ~kStartingWriteTLS;
 		
@@ -6581,12 +6581,32 @@ static OSStatus SSLWriteFunction(SSLConnectionRef connection, const void *data, 
 	else if (status == errSSLPeerAuthCompleted)
 	{
 		LogVerbose(@"SSLHandshake peerAuthCompleted - awaiting delegate approval");
-		
+
+        Boolean clientAuth;
+        SSLGetSessionOption(sslContext, kSSLSessionOptionBreakOnClientAuth, &clientAuth);
+        if (clientAuth) {
+#if 0 // this API doesn't seem to work correctly...
+            SSLClientCertificateState clientCertState;
+            status = SSLGetClientCertificateState(sslContext, &clientCertState);
+            if (status != noErr)
+            {
+                [self closeWithError:[self sslError:status]];
+                return;
+            }
+            if (clientCertState != kSSLClientCertSent) {
+                // No client cert, so continue with handshake
+                return;
+            }
+#endif
+        }
+
 		__block SecTrustRef trust = NULL;
 		status = SSLCopyPeerTrust(sslContext, &trust);
-		if (status != noErr)
-		{
-			[self closeWithError:[self sslError:status]];
+        if (clientAuth && status == errSSLBadCert) {
+            // No client cert provided; continue but pass the delegate a NULL trust ref
+            trust = NULL;
+        } else if (status != noErr) {
+            [self closeWithError:[self sslError:status]];
 			return;
 		}
 		

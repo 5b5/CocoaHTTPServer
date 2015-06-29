@@ -76,7 +76,7 @@
 
 - (BOOL)isSecureServer;
 - (NSArray *)sslIdentityAndCertificates;
-- (BOOL)requiresSSLClientCert;
+- (SSLAuthenticate)sslClientSideAuthentication;
 
 - (BOOL)isPasswordProtected:(NSString *)path;
 - (BOOL)useDigestAccessAuthentication;

@@ -354,13 +354,13 @@ static NSMutableArray *recentNonces;
 	return nil;
 }
 
-- (BOOL)requiresSSLClientCert
+- (SSLAuthenticate)sslClientSideAuthentication
 {
     HTTPLogTrace();
 
-    // Override me to require that clients provide SSL certs.
+    // Override me to make SSL client certs optional or even required.
 
-    return NO;
+    return kNeverAuthenticate;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -658,12 +658,12 @@ static NSMutableArray *recentNonces;
             // security vulnerability, and TN2783 says to also disallow TLSv1.2 because some
             // servers don't handle it correctly. And GCDAsyncSocket doesn't support specifying
             // TLSv1.1 on Mac OS. So that leaves only TLSV1.0.
-			[settings setObject:(NSString *)kCFStreamSocketSecurityLevelTLSv1
-						 forKey:(NSString *)kCFStreamSSLLevel];
-			
-            if (self.requiresSSLClientCert)
+            settings[GCDAsyncSocketSSLProtocolVersionMin] = @(kTLSProtocol1);
+
+            SSLAuthenticate clientAuth = self.sslClientSideAuthentication;
+            if (clientAuth != kNeverAuthenticate)
             {
-                settings[GCDAsyncSocketSSLClientSideAuthentication] = @(kAlwaysAuthenticate);
+                settings[GCDAsyncSocketSSLClientSideAuthentication] = @(clientAuth);
                 settings[GCDAsyncSocketManuallyEvaluateTrust] = @YES;
             }
 
