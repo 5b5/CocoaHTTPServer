@@ -6584,22 +6584,6 @@ static OSStatus SSLWriteFunction(SSLConnectionRef connection, const void *data, 
 
         Boolean clientAuth;
         SSLGetSessionOption(sslContext, kSSLSessionOptionBreakOnClientAuth, &clientAuth);
-        if (clientAuth) {
-#if 0 // this API doesn't seem to work correctly...
-            SSLClientCertificateState clientCertState;
-            status = SSLGetClientCertificateState(sslContext, &clientCertState);
-            if (status != noErr)
-            {
-                [self closeWithError:[self sslError:status]];
-                return;
-            }
-            if (clientCertState != kSSLClientCertSent) {
-                // No client cert, so continue with handshake
-                return;
-            }
-#endif
-        }
-
 		__block SecTrustRef trust = NULL;
 		status = SSLCopyPeerTrust(sslContext, &trust);
         if (clientAuth && status == errSSLBadCert) {
