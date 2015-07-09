@@ -101,8 +101,9 @@
  * If the server is not running this method returns 0.
 **/
 - (UInt16)port;
-- (UInt16)listeningPort;
 - (void)setPort:(UInt16)value;
+
+@property (readonly) UInt16 listeningPort;
 
 /**
  * Bonjour domain for publishing the service.
@@ -191,7 +192,7 @@
 - (void)stop;
 - (void)stop:(BOOL)keepExistingConnections;
 
-- (BOOL)isRunning;
+@property (readonly) BOOL isRunning;
 
 - (void)addWebSocket:(WebSocket *)ws;
 

@@ -37,13 +37,16 @@
 // Other flags: trace
 static const int httpLogLevel = HTTP_LOG_LEVEL_INFO; // | HTTP_LOG_FLAG_TRACE;
 
-@interface HTTPServer (PrivateAPI)
+@interface HTTPServer ()
 
 - (void)unpublishBonjour;
 - (void)publishBonjour;
 
 + (void)startBonjourThreadIfNeeded;
 + (void)performBonjourBlock:(dispatch_block_t)block;
+
+@property (readwrite) BOOL isRunning;
+@property (readwrite) UInt16 listeningPort;
 
 @end
 
@@ -52,6 +55,8 @@ static const int httpLogLevel = HTTP_LOG_LEVEL_INFO; // | HTTP_LOG_FLAG_TRACE;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 @implementation HTTPServer
+
+@synthesize isRunning=isRunning, listeningPort=listeningPort;
 
 /**
  * Standard Constructor.
@@ -108,7 +113,7 @@ static const int httpLogLevel = HTTP_LOG_LEVEL_INFO; // | HTTP_LOG_FLAG_TRACE;
 		                                             name:WebSocketDidDieNotification
 		                                           object:nil];
 		
-		isRunning = NO;
+		self.isRunning = NO;
 	}
 	return self;
 }
@@ -243,20 +248,6 @@ static const int httpLogLevel = HTTP_LOG_LEVEL_INFO; // | HTTP_LOG_FLAG_TRACE;
 	});
 	
     return result;
-}
-
-- (UInt16)listeningPort
-{
-	__block UInt16 result;
-	
-	dispatch_sync(serverQueue, ^{
-		if (isRunning)
-			result = [asyncSocket localPort];
-		else
-			result = 0;
-	});
-	
-	return result;
 }
 
 - (void)setPort:(UInt16)value
@@ -428,8 +419,9 @@ static const int httpLogLevel = HTTP_LOG_LEVEL_INFO; // | HTTP_LOG_FLAG_TRACE;
 		if (success)
 		{
 			HTTPLogInfo(@"%@: Started HTTP server on port %hu", THIS_FILE, [asyncSocket localPort]);
-			
-			isRunning = YES;
+
+            self.listeningPort = [asyncSocket localPort];
+            self.isRunning = YES;
 			[self publishBonjour];
 		}
 		else
@@ -460,7 +452,7 @@ static const int httpLogLevel = HTTP_LOG_LEVEL_INFO; // | HTTP_LOG_FLAG_TRACE;
 		
 		// Stop listening / accepting incoming connections
 		[asyncSocket disconnect];
-		isRunning = NO;
+		self.isRunning = NO;
 		
 		if (!keepExistingConnections)
 		{
@@ -483,17 +475,6 @@ static const int httpLogLevel = HTTP_LOG_LEVEL_INFO; // | HTTP_LOG_FLAG_TRACE;
 			[webSocketsLock unlock];
 		}
 	}});
-}
-
-- (BOOL)isRunning
-{
-	__block BOOL result;
-	
-	dispatch_sync(serverQueue, ^{
-		result = isRunning;
-	});
-	
-	return result;
 }
 
 - (void)addWebSocket:(WebSocket *)ws
