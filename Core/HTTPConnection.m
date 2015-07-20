@@ -654,10 +654,7 @@ static NSMutableArray *recentNonces;
 			[settings setObject:certificates
 						 forKey:(NSString *)kCFStreamSSLCertificates];
 			
-			// Configure this connection to use TLS 1.0. We need to disallow SSLv3 due to the POODLE
-            // security vulnerability, and TN2783 says to also disallow TLSv1.2 because some
-            // servers don't handle it correctly. And GCDAsyncSocket doesn't support specifying
-            // TLSv1.1 on Mac OS. So that leaves only TLSV1.0.
+			// Configure this connection to require at least TLS 1.0, to avoid vulnerabilities.
             settings[GCDAsyncSocketSSLProtocolVersionMin] = @(kTLSProtocol1);
 
             SSLAuthenticate clientAuth = self.sslClientSideAuthentication;
