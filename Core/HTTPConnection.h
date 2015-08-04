@@ -103,6 +103,7 @@
 - (void)handleResourceNotFound;
 - (void)handleInvalidRequest:(NSData *)data;
 - (void)handleUnknownMethod:(NSString *)method;
+- (void)handleRequestedRangeNotSatisfiable:(UInt64)length;
 
 - (NSData *)preprocessResponse:(HTTPMessage *)response;
 - (NSData *)preprocessErrorResponse:(HTTPMessage *)response;

@@ -770,9 +770,11 @@ static NSMutableArray *recentNonces;
 /**
  * Attempts to parse the given range header into a series of sequential non-overlapping ranges.
  * If successfull, the variables 'ranges' and 'rangeIndex' will be updated, and YES will be returned.
- * Otherwise, NO is returned, and the range request should be ignored.
+ * Otherwise, NO is returned. When NO is returned, the the range request should be ignored if the
+ * validRange out param is YES, otherwise a 416 (Requested Range Not Satisfiable) error resposnse
+ * should be returned to the client.
  **/
-- (BOOL)parseRangeRequest:(NSString *)rangeHeader withContentLength:(UInt64)contentLength
+- (BOOL)parseRangeRequest:(NSString *)rangeHeader withContentLength:(UInt64)contentLength validRange:(BOOL*)validRange
 {
 	HTTPLogTrace();
 	
@@ -792,7 +794,9 @@ static NSMutableArray *recentNonces;
 	// bytes=500-600,601-999
 	// bytes=500-700,601-999
 	// 
-	
+
+    if (validRange) *validRange = YES;
+
 	NSRange eqsignRange = [rangeHeader rangeOfString:@"="];
 	
 	if(eqsignRange.location == NSNotFound) return NO;
@@ -833,8 +837,12 @@ static NSMutableArray *recentNonces;
 			UInt64 byteIndex;
 			if(![NSNumber parseString:rangeComponent intoUInt64:&byteIndex]) return NO;
 			
-			if(byteIndex >= contentLength) return NO;
-			
+            if(byteIndex >= contentLength)
+            {
+                if (validRange) *validRange = NO;
+                return NO;
+            }
+
 			[ranges addObject:[NSValue valueWithDDRange:DDMakeRange(byteIndex, 1)]];
 		}
 		else
@@ -857,9 +865,8 @@ static NSMutableArray *recentNonces;
 				// We're dealing with a "-[#]" range
 				// 
 				// r2 is the number of ending bytes to include in the range
-				
 				if(!hasR2) return NO;
-				if(r2 > contentLength) return NO;
+                if(r2 > contentLength) return NO;
 				
 				UInt64 startIndex = contentLength - r2;
 				
@@ -870,8 +877,11 @@ static NSMutableArray *recentNonces;
 				// We're dealing with a "[#]-" range
 				// 
 				// r1 is the starting index of the range, which goes all the way to the end
-				
-				if(r1 >= contentLength) return NO;
+                if(r1 >= contentLength)
+                {
+                    if (validRange) *validRange = NO;
+                    return NO;
+                }
 				
 				[ranges addObject:[NSValue valueWithDDRange:DDMakeRange(r1, contentLength - r1)]];
 			}
@@ -881,7 +891,12 @@ static NSMutableArray *recentNonces;
 				// 
 				// Note: The range is inclusive. So 0-1 has a length of 2 bytes.
 				
-				if(r1 > r2) return NO;
+                if(r1 > r2)
+                {
+                    if (validRange) *validRange = NO;
+                    return NO;
+                }
+
 				if(r2 >= contentLength)
                     r2 = contentLength - 1;
 				
@@ -907,6 +922,7 @@ static NSMutableArray *recentNonces;
 			
 			if(iRange.length != 0)
 			{
+                if (validRange) *validRange = NO;
 				return NO;
 			}
 		}
@@ -1197,14 +1213,19 @@ static NSMutableArray *recentNonces;
 	// If the response is "chunked" then we don't know the exact content-length.
 	// This means we'll be unable to process any range requests.
 	// This is because range requests might include a range like "give me the last 100 bytes"
-	
 	if (!isChunked && rangeHeader)
 	{
         // If the response has a non-success status, don't treat this as a range request
         if (![httpResponse respondsToSelector:@selector(status)] || httpResponse.status < 300) {
-            if ([self parseRangeRequest:rangeHeader withContentLength:contentLength])
+            BOOL validRange;
+            if ([self parseRangeRequest:rangeHeader withContentLength:contentLength validRange:&validRange])
             {
                 isRangeRequest = YES;
+            }
+            else if (!validRange)
+            {
+                [self handleRequestedRangeNotSatisfiable:contentLength];
+                return;
             }
         }
 	}
@@ -1912,6 +1933,29 @@ static NSMutableArray *recentNonces;
 	NSData *responseData = [self preprocessErrorResponse:response];
 	[asyncSocket writeData:responseData withTimeout:TIMEOUT_WRITE_ERROR tag:HTTP_RESPONSE];
 	
+}
+
+- (void)handleRequestedRangeNotSatisfiable:(UInt64)length {
+    // Override me for custom error handling of 416 requested range not satisfiable.
+    // If you simply want to add a few extra header fields, see the preprocessErrorResponse: method.
+    // You can also use preprocessErrorResponse: to add an optional HTML body.
+    //
+    // See also: supportsMethod:atPath:
+
+    HTTPLogWarn(@"HTTP Server: Error 416 - Requested Range Not Satisfiable: %@",[self requestURI]);
+
+    // Status code 416 - Requested Range Not Satisfiable
+    HTTPMessage *response = [[HTTPMessage alloc] initResponseWithStatusCode:416 description:nil version:HTTPVersion1_1];
+    [response setHeaderField:@"Connection" value:@"close"];
+    NSString* contentRangeStr = $sprintf(@"bytes */%llu", length);
+    [response setHeaderField:@"Content-Range" value:contentRangeStr];
+
+    NSData *responseData = [self preprocessErrorResponse:response];
+    [asyncSocket writeData:responseData withTimeout:TIMEOUT_WRITE_ERROR tag:HTTP_FINAL_RESPONSE];
+
+    // Note: We used the HTTP_FINAL_RESPONSE tag to disconnect after the response is sent.
+    // We do this because the method may include an http body.
+    // Since we can't be sure, we should close the connection.
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
