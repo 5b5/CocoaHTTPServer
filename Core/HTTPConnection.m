@@ -774,7 +774,7 @@ static NSMutableArray *recentNonces;
  * validRange out param is YES, otherwise a 416 (Requested Range Not Satisfiable) error resposnse
  * should be returned to the client.
  **/
-- (BOOL)parseRangeRequest:(NSString *)rangeHeader withContentLength:(UInt64)contentLength validRange:(BOOL*)validRange
+- (BOOL)parseRangeRequest:(NSString *)rangeHeader withContentLength:(UInt64)contentLength satisfiableRange:(BOOL*)satisfiableRange
 {
 	HTTPLogTrace();
 	
@@ -795,7 +795,7 @@ static NSMutableArray *recentNonces;
 	// bytes=500-700,601-999
 	// 
 
-    if (validRange) *validRange = YES;
+    if (satisfiableRange) *satisfiableRange = YES;
 
 	NSRange eqsignRange = [rangeHeader rangeOfString:@"="];
 	
@@ -839,7 +839,7 @@ static NSMutableArray *recentNonces;
 			
             if(byteIndex >= contentLength)
             {
-                if (validRange) *validRange = NO;
+                if (satisfiableRange) *satisfiableRange = NO;
                 return NO;
             }
 
@@ -879,7 +879,7 @@ static NSMutableArray *recentNonces;
 				// r1 is the starting index of the range, which goes all the way to the end
                 if(r1 >= contentLength)
                 {
-                    if (validRange) *validRange = NO;
+                    if (satisfiableRange) *satisfiableRange = NO; // Unsatisfiable
                     return NO;
                 }
 				
@@ -893,7 +893,7 @@ static NSMutableArray *recentNonces;
 				
                 if(r1 > r2)
                 {
-                    if (validRange) *validRange = NO;
+                    // Syntactically invalid, ignore:
                     return NO;
                 }
 
@@ -922,7 +922,6 @@ static NSMutableArray *recentNonces;
 			
 			if(iRange.length != 0)
 			{
-                if (validRange) *validRange = NO;
 				return NO;
 			}
 		}
@@ -1217,12 +1216,12 @@ static NSMutableArray *recentNonces;
 	{
         // If the response has a non-success status, don't treat this as a range request
         if (![httpResponse respondsToSelector:@selector(status)] || httpResponse.status < 300) {
-            BOOL validRange;
-            if ([self parseRangeRequest:rangeHeader withContentLength:contentLength validRange:&validRange])
+            BOOL satisfiableRange;
+            if ([self parseRangeRequest:rangeHeader withContentLength:contentLength satisfiableRange:&satisfiableRange])
             {
                 isRangeRequest = YES;
             }
-            else if (!validRange)
+            else if (!satisfiableRange)
             {
                 [self handleRequestedRangeNotSatisfiable:contentLength];
                 return;
