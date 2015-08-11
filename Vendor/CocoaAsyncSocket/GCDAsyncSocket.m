@@ -904,6 +904,7 @@ enum GCDAsyncSocketConfig
 	GCDAsyncSocketPreBuffer *sslPreBuffer;
 	size_t sslWriteCachedLength;
 	OSStatus sslErrCode;
+    OSStatus lastSSLHandshakeError;
 	
 	void *IsOnSocketQueueOrTargetQueueKey;
 	
@@ -2572,7 +2573,7 @@ enum GCDAsyncSocketConfig
 	#endif
 	
 	[sslPreBuffer reset];
-	sslErrCode = noErr;
+	sslErrCode = lastSSLHandshakeError = noErr;
 	
 	if (sslContext)
 	{
@@ -2669,6 +2670,7 @@ enum GCDAsyncSocketConfig
 	// Clear stored socket info and all flags (config remains as is)
 	socketFDBytesAvailable = 0;
 	flags = 0;
+	sslWriteCachedLength = 0;
 	
 	if (shouldCallDelegate)
 	{
@@ -4195,7 +4197,7 @@ enum GCDAsyncSocketConfig
 			
 			size_t sslInternalBufSize = 0;
 			SSLGetBufferedReadSize(sslContext, &sslInternalBufSize);
-			
+
 			estimatedBytesAvailable += sslInternalBufSize;
 		}
 		
@@ -4226,7 +4228,7 @@ enum GCDAsyncSocketConfig
 		
 		if (flags & kStartingWriteTLS)
 		{
-			if ([self usingSecureTransportForTLS])
+			if ([self usingSecureTransportForTLS] && lastSSLHandshakeError == errSSLWouldBlock)
 			{
 				// We are in the process of a SSL Handshake.
 				// We were waiting for incoming data which has just arrived.
@@ -5314,7 +5316,7 @@ enum GCDAsyncSocketConfig
 		
 		if (flags & kStartingReadTLS)
 		{
-			if ([self usingSecureTransportForTLS])
+			if ([self usingSecureTransportForTLS] && lastSSLHandshakeError == errSSLWouldBlock)
 			{
 				// We are in the process of a SSL Handshake.
 				// We were waiting for available space in the socket's internal OS buffer to continue writing.
@@ -6533,7 +6535,7 @@ static OSStatus SSLWriteFunction(SSLConnectionRef connection, const void *data, 
 		[sslPreBuffer didWrite:preBufferLength];
 	}
 	
-	sslErrCode = noErr;
+	sslErrCode = lastSSLHandshakeError = noErr;
 	
 	// Start the SSL Handshake process
 	
@@ -6552,6 +6554,7 @@ static OSStatus SSLWriteFunction(SSLConnectionRef connection, const void *data, 
 	// Otherwise, the return value indicates an error code.
 	
 	OSStatus status = SSLHandshake(sslContext);
+	lastSSLHandshakeError = status;
 	
 	if (status == noErr)
 	{
@@ -6678,11 +6681,12 @@ static OSStatus SSLWriteFunction(SSLConnectionRef connection, const void *data, 
 	
 	if (shouldTrust)
 	{
+        NSAssert(lastSSLHandshakeError == errSSLPeerAuthCompleted, @"ssl_shouldTrustPeer called when last error is %d and not errSSLPeerAuthCompleted", (int)lastSSLHandshakeError);
         // Continue handshake if it hasn't completed already.
         if ((flags & kStartingReadTLS) || (flags & kStartingWriteTLS))
         {
-		[self ssl_continueSSLHandshake];
-	}
+            [self ssl_continueSSLHandshake];
+        }
 	}
 	else
 	{
