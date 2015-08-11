@@ -4197,6 +4197,13 @@ enum GCDAsyncSocketConfig
 			
 			size_t sslInternalBufSize = 0;
 			SSLGetBufferedReadSize(sslContext, &sslInternalBufSize);
+            if (sslInternalBufSize == 0) {
+                // HACK to work around SSLGetBufferedReadSize returning 0 even when there is up to
+                // 16kb of data buffered in the context. Unfortunately this discrepancy causes the
+                // logic later in this method to fail to read all the data available, which can
+                // result in deadlock. --Jens Alfke 7/2015
+                sslInternalBufSize = 1024 * 16;
+            }
 
 			estimatedBytesAvailable += sslInternalBufSize;
 		}
