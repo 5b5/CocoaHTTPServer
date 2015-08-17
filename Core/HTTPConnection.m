@@ -860,48 +860,51 @@ static NSMutableArray *recentNonces;
 			BOOL hasR1 = [NSNumber parseString:r1str intoUInt64:&r1];
 			BOOL hasR2 = [NSNumber parseString:r2str intoUInt64:&r2];
 			
-			if (!hasR1)
-			{
-				// We're dealing with a "-[#]" range
-				// 
-				// r2 is the number of ending bytes to include in the range
-				if(!hasR2) return NO;
-                if(r2 > contentLength) return NO;
-				
-				UInt64 startIndex = contentLength - r2;
-				
-				[ranges addObject:[NSValue valueWithDDRange:DDMakeRange(startIndex, r2)]];
-			}
-			else if (!hasR2)
-			{
-				// We're dealing with a "[#]-" range
-				// 
-				// r1 is the starting index of the range, which goes all the way to the end
-                if(r1 >= contentLength)
-                {
-                    if (satisfiableRange) *satisfiableRange = NO; // Unsatisfiable
-                    return NO;
-                }
-				
-				[ranges addObject:[NSValue valueWithDDRange:DDMakeRange(r1, contentLength - r1)]];
-			}
-			else
-			{
-				// We're dealing with a normal "[#]-[#]" range
-				// 
-				// Note: The range is inclusive. So 0-1 has a length of 2 bytes.
-				
-                if(r1 > r2)
-                {
-                    // Syntactically invalid, ignore:
-                    return NO;
-                }
-
-				if(r2 >= contentLength)
+            UInt64 start, length;
+            if (!hasR1)
+            {
+                // We're dealing with a "-[#]" range
+                //
+                // r2 is the number of ending bytes to include in the range
+                if(!hasR2)
+                    return NO; // invalid range
+                
+                length = MIN(r2, contentLength);
+                start = contentLength - length;
+            }
+            else if (!hasR2)
+            {
+                // We're dealing with a "[#]-" range
+                //
+                // r1 is the starting index of the range, which goes all the way to the end
+                start = r1;
+                length = contentLength - r1;
+            }
+            else
+            {
+                // We're dealing with a normal "[#]-[#]" range
+                //
+                // Note: The range is inclusive. So 0-1 has a length of 2 bytes.
+                if (r1 > r2)
+                    return NO; // invalid range
+                
+                if(r2 >= contentLength)
                     r2 = contentLength - 1;
-				
-				[ranges addObject:[NSValue valueWithDDRange:DDMakeRange(r1, r2 - r1 + 1)]];
-			}
+                
+                start = r1;
+                length = r2 - r1 + 1;
+            }
+            
+            if (start >= contentLength) {
+                // Requested Range Not Satisfiable
+                if (satisfiableRange) *satisfiableRange = NO;
+                return NO;
+            }
+            
+            if (start == 0 && length == contentLength)
+                return NO; // No-op; entire body causes a 200 response
+            
+            [ranges addObject:[NSValue valueWithDDRange:DDMakeRange(start, length)]];
 		}
 	}
 	
