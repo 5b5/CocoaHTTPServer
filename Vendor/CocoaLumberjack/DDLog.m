@@ -140,7 +140,11 @@ static unsigned int numProcessors;
 		loggingGroup = dispatch_group_create();
 		
 		queueSemaphore = dispatch_semaphore_create(LOG_MAX_QUEUE_SIZE);
-		
+
+#if TARGET_OS_TV
+        // host_info is not available on tvOS
+        numProcessors = 1;
+#else
 		// Figure out how many processors are available.
 		// This may be used later for an optimization on uniprocessor machines.
 		
@@ -156,7 +160,7 @@ static unsigned int numProcessors;
 		numProcessors = MAX(result, one);
 		
 		NSLogDebug(@"DDLog: numProcessors = %u", numProcessors);
-			
+#endif
 		
 	#if TARGET_OS_IPHONE
 		NSString *notificationName = @"UIApplicationWillTerminateNotification";
