@@ -872,7 +872,10 @@ static char *dd_str_copy(const char *str)
 		
 		machThreadID = pthread_mach_thread_np(pthread_self());
 		
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		queueLabel = dd_str_copy(dispatch_queue_get_label(dispatch_get_current_queue()));
+#pragma clang diagnostic pop
 		
 		threadName = [[NSThread currentThread] name];
 	}
@@ -1000,7 +1003,10 @@ static char *dd_str_copy(const char *str)
 	// So direct access to the formatter is only available if requested from the loggerQueue.
 	// In all other circumstances we need to go through the loggingQueue to get the proper value.
 	
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	dispatch_queue_t currentQueue = dispatch_get_current_queue();
+#pragma clang diagnostic pop
 	if (currentQueue == loggerQueue)
 	{
 		return formatter;
@@ -1032,7 +1038,10 @@ static char *dd_str_copy(const char *str)
 		}
 	};
 	
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	dispatch_queue_t currentQueue = dispatch_get_current_queue();
+#pragma clang diagnostic pop
 	if (currentQueue == loggerQueue)
 	{
 		block();

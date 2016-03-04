@@ -164,7 +164,7 @@ static NSMutableArray *recentNonces;
 		[recentNonces addObject:newNonce];
 	}});
 	
-	double delayInSeconds = TIMEOUT_NONCE;
+	int delayInSeconds = TIMEOUT_NONCE;
 	dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, delayInSeconds * NSEC_PER_SEC);
 	dispatch_after(popTime, recentNonceQueue, ^{ @autoreleasepool {
 		
@@ -1564,7 +1564,7 @@ static NSMutableArray *recentNonces;
 	}
 	else
 	{
-		if (++rangeIndex < [ranges count])
+		if (++rangeIndex < (int)[ranges count])
 		{
 			// Write range header
 			NSData *rangeHeader = [ranges_headers objectAtIndex:rangeIndex];
@@ -2157,7 +2157,7 @@ static NSMutableArray *recentNonces;
 			{
 				if (transferEncoding && ![transferEncoding caseInsensitiveCompare:@"Chunked"])
 				{
-					requestContentLength = -1;
+					requestContentLength = UINT64_MAX;
 				}
 				else
 				{
@@ -2230,7 +2230,7 @@ static NSMutableArray *recentNonces;
 				if (requestContentLength > 0)
 				{
 					// Start reading the request body
-					if (requestContentLength == -1)
+					if (requestContentLength == UINT64_MAX)
 					{
 						// Chunked transfer
 						
