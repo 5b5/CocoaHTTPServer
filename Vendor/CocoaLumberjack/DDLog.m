@@ -1033,8 +1033,8 @@ static char *dd_str_copy(const char *str)
 	// The design of this method is documented extensively in the logFormatter message (above in code).
 	
 	dispatch_block_t block = ^{
-		if (formatter != logFormatter) {
-			formatter = logFormatter;
+        if (self->formatter != logFormatter) {
+            self->formatter = logFormatter;
 		}
 	};
 	
@@ -1052,7 +1052,7 @@ static char *dd_str_copy(const char *str)
 		NSAssert(currentQueue != globalLoggingQueue, @"Core architecture requirement failure");
 		
 		dispatch_async(globalLoggingQueue, ^{
-			dispatch_async(loggerQueue, block);
+            dispatch_async(self->loggerQueue, block);
 		});
 	}
 }
